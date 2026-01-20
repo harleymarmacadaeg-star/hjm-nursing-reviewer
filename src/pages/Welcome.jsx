@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
-import { motion, AnimatePresence } from 'framer-motion' // <--- Added AnimatePresence
+import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, Mail, Facebook, ArrowRight, Linkedin } from 'lucide-react'
 
 // --- IMAGES ---
@@ -10,20 +10,25 @@ import img1 from '../img/img1.jpg'
 import img2 from '../img/img2.jpg'
 import img3 from '../img/img3.jpg'
 
-const SLIDES = [img1, img2, img3] // Array for the slideshow
+const SLIDES = [img1, img2, img3]
+
+// --- RANK LOGIC UTILITY ---
+export const getNurseRank = (score) => {
+  if (score >= 301) return { title: "Top Notcher", color: "text-yellow-600", bg: "bg-yellow-100", border: "border-yellow-300" };
+  if (score >= 151) return { title: "Nurse Supervisor", color: "text-purple-600", bg: "bg-purple-100", border: "border-purple-300" };
+  if (score >= 51) return { title: "Registered Nurse (RN)", color: "text-green-600", bg: "bg-green-100", border: "border-green-300" };
+  return { title: "Student Nurse", color: "text-blue-600", bg: "bg-blue-100", border: "border-blue-300" };
+};
 
 export default function Welcome() {
   const [topScorers, setTopScorers] = useState([])
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' })
   const [sending, setSending] = useState(false)
-  
-  // Slideshow State
   const [currentSlide, setCurrentSlide] = useState(0)
 
   useEffect(() => {
     fetchLeaderboard()
     
-    // Timer for Slideshow (Changes every 4 seconds)
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % SLIDES.length)
     }, 4000)
@@ -32,7 +37,12 @@ export default function Welcome() {
   }, [])
 
   const fetchLeaderboard = async () => {
-    const { data } = await supabase.from('leaderboard').select('*')
+    const { data } = await supabase
+      .from('leaderboard')
+      .select('*')
+      .order('total_score', { ascending: false }) // Keep highest scores on top
+      .limit(5)
+    
     if (data) setTopScorers(data)
   }
 
@@ -65,7 +75,7 @@ export default function Welcome() {
         </div>
       </nav>
 
-      {/* 2. SPLIT HERO SECTION */}
+      {/* 2. HERO SECTION WITH RANKED LEADERBOARD */}
       <header className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white overflow-hidden pb-12">
         <div className="max-w-7xl mx-auto px-4 pt-12 md:pt-20 flex flex-col lg:flex-row gap-12 relative z-10">
           
@@ -90,7 +100,7 @@ export default function Welcome() {
             </motion.div>
           </div>
 
-          {/* RIGHT: Immediate Hall of Fame */}
+          {/* RIGHT: Immediate Hall of Fame (WITH BADGES) */}
           <motion.div 
             initial={{ opacity: 0, x: 20 }} 
             animate={{ opacity: 1, x: 0 }} 
@@ -106,46 +116,53 @@ export default function Welcome() {
               {topScorers.length === 0 ? (
                 <p className="text-sm text-blue-200 text-center py-4">No records yet. Be the first!</p>
               ) : (
-                topScorers.map((scorer, index) => (
-                  <div key={index} className="flex items-center justify-between bg-black/20 p-2 rounded hover:bg-black/30 transition">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${index === 0 ? 'bg-yellow-400 text-blue-900' : 'bg-blue-800 text-white'}`}>
-                        {index + 1}
+                topScorers.map((scorer, index) => {
+                  const rank = getNurseRank(scorer.total_score); // Calculate Rank
+                  return (
+                    <div key={index} className="flex items-center justify-between bg-black/20 p-3 rounded-lg hover:bg-black/30 transition border border-white/5">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-inner ${index === 0 ? 'bg-yellow-400 text-blue-900' : 'bg-blue-800 text-white'}`}>
+                          {index + 1}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold truncate w-32 leading-none mb-1">
+                            {scorer.first_name} {scorer.last_name}
+                          </span>
+                          {/* RANK BADGE */}
+                          <span className={`text-[9px] w-fit px-2 py-0.5 rounded-full font-extrabold uppercase tracking-tighter border ${rank.bg} ${rank.color} ${rank.border}`}>
+                            {rank.title}
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-sm font-medium truncate w-32">{scorer.first_name} {scorer.last_name}</span>
+                      <div className="text-right">
+                        <span className="text-sm font-black text-yellow-400 block">{scorer.total_score}</span>
+                        <span className="text-[10px] text-blue-200 uppercase font-bold">Points</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-yellow-400">{scorer.total_score} pts</span>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </motion.div>
         </div>
       </header>
 
-      {/* 3. ANIMATED SLIDESHOW SECTION (Updated) */}
+      {/* 3. ANIMATED SLIDESHOW SECTION */}
       <section className="bg-gray-100 py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="relative w-full h-80 md:h-96 bg-white rounded-2xl shadow-2xl overflow-hidden border-4 border-white">
-            
-            {/* The AnimatePresence allows components to animate OUT when they are removed */}
             <AnimatePresence mode='wait'>
               <motion.img 
-                key={currentSlide} // Key changes force React to treat this as a new image, triggering animation
+                key={currentSlide} 
                 src={SLIDES[currentSlide]} 
-                
-                // Animation Settings
-                initial={{ opacity: 0, scale: 1.1 }} // Start slightly zoomed in and invisible
-                animate={{ opacity: 1, scale: 1 }}   // Fade in and zoom to normal
-                exit={{ opacity: 0 }}                // Fade out when leaving
-                transition={{ duration: 0.8 }}       // Speed of animation
-                
+                initial={{ opacity: 0, scale: 1.1 }} 
+                animate={{ opacity: 1, scale: 1 }} 
+                exit={{ opacity: 0 }} 
+                transition={{ duration: 0.8 }} 
                 alt="Reviewer Highlights" 
                 className="absolute inset-0 w-full h-full object-cover"
               />
             </AnimatePresence>
-
-            {/* Optional: Text Overlay on the Slideshow */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6 text-white">
               <h3 className="text-2xl font-bold">Comprehensive Review Materials</h3>
               <p className="text-sm opacity-90">Study anytime, anywhere with our mobile-friendly platform.</p>
@@ -157,7 +174,6 @@ export default function Welcome() {
       {/* 4. CONTACT SECTION */}
       <section id="contact" className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12">
-          
           <div>
             <h2 className="text-2xl font-bold text-blue-900 mb-4">Get in Touch</h2>
             <p className="text-gray-600 mb-6">Need a Premium Voucher? Contact me.</p>
@@ -188,7 +204,6 @@ export default function Welcome() {
               </button>
             </form>
           </div>
-
         </div>
       </section>
 
